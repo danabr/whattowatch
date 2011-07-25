@@ -2,17 +2,16 @@
 <html>
   <head>
     <title>WhatToWatch on GitHub</title>
+    
+    <link href="whattowatch.css" rel="stylesheet" type="text/css" />
     <script type="text/javascript" src="whattowatch.js"></script>
   </head>
   <body onload="init()">
     <h1>What to Watch?</h1>
     <form id="username_form">
-      <label for="username">Username:</label>
-      <input type="text" name="username" />
+      <input type="text" placeholder="username" name="username" />
       <input type="submit" name="submit" value="Go" />
     </form>
-    <h2> Results</h2>
-    <div id="results">
-    </div>
+    <div id="results"></div>
   </body>
 </html>

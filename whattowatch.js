@@ -1,10 +1,13 @@
+/*
+  Warning: This code is a mess and is expected to stay so.
+*/
+
 // Global state
 var state = {};
 
 function init() {
   var form = document.getElementById("username_form");
   var resultsDiv = document.getElementById("results");
-  form.username.focus();
   form.onsubmit = function() {
     state.resultsDiv = resultsDiv;
     state.form = form;
@@ -110,22 +113,34 @@ function stepFive() {
   });
   
   // Display repos
-  var table = document.createElement("table");
+  // Structure stolen from opencode.us =)
+  var reposDiv = document.createElement("div");
   for(var repoIndex in repos) {
     var repo = repos[repoIndex];
-    var tr = document.createElement("tr");
-    var idTd = document.createElement("td");
-    var idA = document.createElement("a");
-    idA.href = repo.repo.html_url;
-    idA.appendChild(document.createTextNode(repoId(repo.repo)));
-    idTd.appendChild(idA);
-    var scoreTd = document.createElement("td");
-    scoreTd.appendChild(document.createTextNode(repo.score));
-    tr.appendChild(idTd);
-    tr.appendChild(scoreTd);
-    table.appendChild(tr);
+    var repoDiv = document.createElement("div");
+    repoDiv.className = "repository";
+    
+    var repoNameDiv = document.createElement("div");
+    repoNameDiv.className="name";
+    var scoreSpan = document.createElement("span");
+    scoreSpan.appendChild(document.createTextNode(repo.score));
+    scoreSpan.className = "score";
+    repoNameDiv.appendChild(scoreSpan);
+    var repoAnchor = document.createElement("a");
+    repoAnchor.href = repo.repo.html_url;
+    repoAnchor.target = "_blank";
+    repoAnchor.appendChild(document.createTextNode(repoId(repo.repo)));
+    repoNameDiv.appendChild(repoAnchor);
+    
+    var repoDescDiv = document.createElement("div");
+    repoDescDiv.className = "description";
+    repoDescDiv.appendChild(document.createTextNode(repo.repo.description));
+    
+    repoDiv.appendChild(repoNameDiv);
+    repoDiv.appendChild(repoDescDiv);
+    reposDiv.appendChild(repoDiv);
   }
-  state.resultsDiv.appendChild(table);
+  state.resultsDiv.appendChild(reposDiv);
   
   lastStep();
 }

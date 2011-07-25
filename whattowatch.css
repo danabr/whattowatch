@@ -1,0 +1,56 @@
+/**
+  As I am hopelessly bad at styling, I have stolen
+  the looks of opencode.us.
+**/
+
+body, input, label {
+  color: #222;
+  font-family: 'Neuton', serif;
+  font-style: normal;
+  font-weight: 400;
+  text-shadow: none;
+  text-transform: none;
+  letter-spacing: 0em;
+  word-spacing: 0em;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size:50px;
+  font-weight:bold;
+}
+
+#results {
+  padding-top:20px;
+}
+
+.repository {
+margin-bottom: 20px;
+}
+
+.repository a {
+  color:#0069b3;
+  text-decoration:none;
+}
+.repository a:hover {
+  color:#0069b3;
+  text-decoration:underline;
+}
+
+.repository .name {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.repository .score {
+  font-size:36px;
+  float:left;
+  width:50px;
+  color:#e70057;
+  font-weight:bold;
+}
+
+.repository .description {
+  font-size:14px;
+  padding-top:5px;
+}
