@@ -2,101 +2,116 @@
   Warning: This code is a mess and is expected to stay so.
 */
 
-// Global state
-var state = {};
+/*
+  Interface for abstracting calls to the github api.
+*/
+var Github = function () {
+  var workers = [];
+  var currentWorker = 0;
+  while(workers.length < 4) {
+    workers.push(new Worker("callgithub.js"));
+  }
+
+  return {
+    workers: workers,
+    currentWorker: currentWorker,
+    call: function(path, callback) { 
+      var worker = this.workers[this.currentWorker];
+      worker.onmessage = function(msg) {
+        callback(JSON.parse(msg.data));
+      };
+      worker.postMessage(path);
+      this.currentWorker = (this.currentWorker + 1) % this.workers.length;
+    }
+  };
+}();
 
 function init() {
-  var form = document.getElementById("username_form");
-  var resultsDiv = document.getElementById("results");
-  form.onsubmit = function() {
-    state.resultsDiv = resultsDiv;
-    state.form = form;
-    clear(resultsDiv);
-    if (form.username.value.length > 0) {
-      state.username = form.username.value;
-      form.submit.disabled = true;
-      stepOne();
+  var state = {};
+  state.form = document.getElementById("username_form");
+  state.resultsDiv = document.getElementById("results");
+  state.followingDiv = document.getElementById("following");
+  state.timeTakenDiv = document.getElementById("time_taken");
+  state.form.onsubmit = function() {
+    state.followingDiv.innerHTML = "";
+    state.timeTakenDiv.innerHTML = "";
+    state.resultsDiv.innerHTML = "";
+    if (state.form.username.value.length > 0) {
+      state.form.submit.disabled = true;
+      state.username = state.form.username.value;
+      state.suggestions = {};
+      state.startTime = new Date();
+      makeBlacklist(state);
     } else {
-      resultsDiv.appendChild(document.createTextNode("No username given"));
+      state.resultsDiv.innerHTML = "No username given";
     }
     return false;
   };
 }
 
-function callGithub(path, callback) {
-  var url = "https://api.github.com/" + path + "?callback=" + callback;
-  var script = document.createElement("script");
-  script.src = url;
-  document.head.appendChild(script);
-}
-
-function clear(container) {
-  while(container.firstChild) {
-    container.removeChild(container.firstChild);
-  }
-}
-
-function stepOne() {
-  state.suggestions = {};
-  callGithub("users/" + state.username + "/watched", "stepTwo");
-}
-
-// Create blacklist
-function stepTwo(json) {
-  if (json.meta.status === 404) {
-    state.resultsDiv.appendChild(document.createTextNode("No such user"));
-    lastStep();
-  } else {
-    state.blacklist = {};
-    for (repoIndex in json.data) {
-      state.blacklist[repoId(json.data[repoIndex])] = true;
-    }
-  }
-  // Get a list of people *username* is following
-  callGithub("users/" + state.username + "/following", "stepThree");
-}
-
-// Following
-function stepThree(json) {
-  state.following = json.data;
-  if (state.following.length > 0) {
-    state.followIndex = 1;
-    callGithub("users/" + json.data[0].login + "/watched",
-               "stepFour");
-  } else {
-    var text = state.username + " is not following anyone";
-    state.resultsDiv.appendChild(document.createTextNode(text));
-    lastStep();
-  }
-}
-
-// Find out what those people are watching
-function stepFour(json) {
-  for(var repoIndex in json.data) {
-    var repo = json.data[repoIndex];
-    var id = repoId(repo);
-    if (state.blacklist[id] === undefined) {
-      if (state.suggestions[id] === undefined) {
-        state.suggestions[id] = {
-          repo: repo,
-          score: 1
-        }
-      } else {
-        state.suggestions[id].score += 1;
+function makeBlacklist(state) {
+  Github.call("users/" + state.username + "/watched", function(json) {
+    if (json.meta.status === 404) {
+      state.resultsDiv.appendChild(document.createTextNode("No such user"));
+      lastStep(state);
+    } else {
+      state.blacklist = {};
+      for (repoIndex in json.data) {
+        state.blacklist[repoId(json.data[repoIndex])] = true;
       }
     }
+
+    getStalkedCoders(state);
+  });
+}
+
+function getStalkedCoders(state) {
+  Github.call("users/" + state.username + "/following", function(json) {
+    state.following = json.data; 
+    state.followingDiv.innerHTML = 
+      "Following " + state.following.length + " coders";
+    if(state.following.length > 0) {
+      countScores(state);
+    } else {
+      var text = state.username + " is not following anyone";
+      state.resultsDiv.innerHTML = text; 
+      lastStep(state);
+    }
+  });
+}
+
+function countScores(state) {
+  var finished = 0;
+  function addScoresFromWatchlist(watchlist) {
+    for(var repoIndex in watchlist.data) {
+      var repo = watchlist.data[repoIndex];
+      var id = repoId(repo);
+      if (state.blacklist[id] === undefined) {
+        if (state.suggestions[id] === undefined) {
+          state.suggestions[id] = {
+            repo: repo,
+            score: 1
+          }
+        } else {
+          state.suggestions[id].score += 1;
+        }
+      }
+    }
+
+    finished += 1;
+    // Last watchlist retrieved?
+    if(finished == state.following.length) {
+      presentResults(state);
+    }
   }
-  // Continue with the rest of the people *username* is following
-  if (state.followIndex < state.following.length) {
-    state.followIndex += 1;
-    callGithub("users/" + state.following[state.followIndex-1].login + 
-                "/watched", "stepFour");
-  } else {
-    stepFive();
+
+  for(var coderIndex in state.following) {
+    Github.call("users/" + state.following[coderIndex].login + "/watched",
+            addScoresFromWatchlist);
   }
 }
 
-function stepFive() {
+function presentResults(state) {
   // state.suggestions now contains all suggestions.
   // Now we sort the suggestions and present them to the user.
   var repos = [];
@@ -111,6 +126,9 @@ function stepFive() {
       return -1;
     }
   });
+
+  var timeTaken = (new Date()) - state.startTime;
+  state.timeTakenDiv.innerHTML = "Time taken: " + timeTaken + "ms";
   
   // Display repos
   // Structure stolen from opencode.us =)
@@ -142,26 +160,11 @@ function stepFive() {
   }
   state.resultsDiv.appendChild(reposDiv);
   
-  lastStep();
+  lastStep(state);
 }
 
-function lastStep() {
+function lastStep(state) {
   state.form.submit.disabled = false;
-  
-  // Clean up state
-  for (var property in state) {
-    delete state.property;
-  }
-  // Remove script tags
-  var headNodes = document.head.childNodes;
-  var i = headNodes.length;
-  var github = /github/;
-  while(--i) {
-    if (headNodes[i].tagName === "SCRIPT" &&
-        github.test(headNodes[i].src)) {
-      document.head.removeChild(headNodes[i]);
-    }
-  }
 }
 
 function repoId(repo) {
